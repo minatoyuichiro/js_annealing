@@ -3,157 +3,192 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quantum Annealing Visualizer</title>
+    <title>Quantum Annealing Explorer</title>
     <style>
         :root {
             --bg-color: #0f172a;
             --card-bg: #1e293b;
             --text-color: #f8fafc;
             --accent-color: #38bdf8;
+            --danger-color: #ef4444;
         }
         body {
-            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-height: 100vh;
+            padding: 20px;
         }
         .container {
-            width: 90%;
+            width: 100%;
             max-width: 1000px;
-            margin-top: 2rem;
             background: var(--card-bg);
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
         }
-        h1 { margin-top: 0; color: var(--accent-color); font-size: 1.5rem; }
-        .stats {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 1rem;
-            font-family: monospace;
-            background: rgba(0,0,0,0.2);
-            padding: 10px;
-            border-radius: 8px;
-        }
-        .label { color: #94a3b8; }
-        .value { color: var(--accent-color); font-weight: bold; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        h1 { margin: 0; font-size: 1.25rem; color: var(--accent-color); }
         
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 1rem;
+            background: rgba(0,0,0,0.25);
+            padding: 12px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        .stat-item { display: flex; flex-direction: column; }
+        .label { color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; }
+        .value { color: var(--accent-color); font-weight: bold; }
+
         canvas {
             width: 100%;
             height: auto;
             background: #000;
-            border-radius: 4px;
+            border-radius: 8px;
             image-rendering: pixelated;
+            border: 1px solid #334155;
         }
+
         .controls {
             margin-top: 1.5rem;
             display: flex;
+            flex-wrap: wrap;
             gap: 10px;
+            justify-content: center;
         }
-        button {
-            background: var(--accent-color);
-            border: none;
-            color: var(--bg-color);
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-weight: bold;
+        .btn {
+            background: #334155;
+            border: 1px solid #475569;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: opacity 0.2s;
+            font-size: 0.85rem;
+            transition: all 0.2s;
         }
-        button:hover { opacity: 0.9; }
-        button:disabled { background: #64748b; cursor: not-allowed; }
+        .btn:hover { background: #475569; border-color: var(--accent-color); }
+        .btn.active { background: var(--accent-color); color: var(--bg-color); border-color: var(--accent-color); }
+        
+        .reset-btn { background: var(--danger-color); border: none; font-weight: bold; }
+        .reset-btn:hover { background: #dc2626; }
 
-        .explanation {
-            margin-top: 2rem;
-            font-size: 0.9rem;
-            line-height: 1.6;
-            color: #cbd5e1;
-            border-top: 1px solid #334155;
-            padding-top: 1rem;
+        .desc-box {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: rgba(56, 189, 248, 0.05);
+            border-left: 4px solid var(--accent-color);
+            border-radius: 4px;
         }
+        .desc-title { font-weight: bold; color: var(--accent-color); margin-bottom: 0.5rem; }
+        .desc-text { font-size: 0.85rem; color: #cbd5e1; line-height: 1.5; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>量子モンテカルロ・シミュレーション</h1>
+    <header>
+        <h1>Quantum Pattern Explorer</h1>
+        <div id="status" style="font-size: 0.8rem; font-weight: bold;">INITIALIZING...</div>
+    </header>
     
     <div class="stats">
-        <div><span class="label">温度 (kT):</span> <span class="value">0.02</span></div>
-        <div><span class="label">横磁場 (G):</span> <span id="GG" class="value">10.000</span></div>
-        <div><span id="status" class="value" style="color:#fbbf24">Running...</span></div>
+        <div class="stat-item"><span class="label">Temperature (kT)</span><span class="value">0.02</span></div>
+        <div class="stat-item"><span class="label">Quantum Fluctuation (G)</span><span id="GG" class="value">10.000</span></div>
+        <div class="stat-item"><span class="label">Mode</span><span id="modeName" class="value">-</span></div>
     </div>
 
     <canvas id="main" width="1050" height="400"></canvas>
 
     <div class="controls">
-        <button id="resetBtn">再試行</button>
+        <button class="btn active" onclick="setMode('ferro', this)">強磁性 (揃う)</button>
+        <button class="btn" onclick="setMode('antiferro', this)">反強磁性 (交互)</button>
+        <button class="btn" onclick="setMode('glass', this)">スピングラス (複雑)</button>
+        <button class="btn" onclick="setMode('cluster', this)">長距離 (塊)</button>
     </div>
 
-    <div class="explanation">
-        <h3>これについて</h3>
-        <p>
-            このプログラムは、**量子アニーリング（量子焼きなまし法）**の過程を可視化しています。
-            縦軸は「トロッター次元（虚時間）」と呼ばれる量子的な並行世界、横軸は「スピン（磁石の向き）」の並びを表します。
-        </p>
-        <p>
-            最初は横磁場（G）が強く、システムはバラバラの状態ですが、Gを徐々に弱めることで量子的なゆらぎが収まり、
-            最終的にすべての世界（縦列）が同じ色の模様（基底状態）に揃っていく様子を観察できます。
-        </p>
+    <div class="desc-box">
+        <div id="descTitle" class="desc-title">モード解説</div>
+        <div id="descText" class="desc-text">選択したモードの物理的な説明がここに表示されます。</div>
     </div>
 </div>
 
 <script>
-    const N = 150;     // 空間サイズ
-    const m = 50;      // トロッター数（量子次元）
-    const kT = 0.02;   // 熱ゆらぎ
-    const jij = 1;     // 相互作用係数
-    const loop = 50000; // 1フレームあたりの試行回数
-    
-    let G = 10;
-    let q = [];
+    const N = 150, m = 50, kT = 0.02, loop = 50000;
+    let G = 10, q = [], J_matrix = [], currentMode = 'ferro';
     let anneal;
 
     const canvas = document.getElementById('main');
     const ctx = canvas.getContext('2d');
-    const gDisplay = document.getElementById('GG');
-    const statusDisplay = document.getElementById('status');
+    const modes = {
+        ferro: { name: "強磁性", desc: "すべてのスピンが同じ方向を向こうとします。最終的には真っ赤か真っ暗（一様）な状態に落ち着きます。" },
+        antiferro: { name: "反強磁性", desc: "隣り合うスピンが反発し合います。量子アニーリングが進むと、綺麗なチェック柄（交互）の模様が現れます。" },
+        glass: { name: "スピングラス", desc: "場所によって「揃いたい」場所と「反発したい」場所がランダムに混在します。エネルギーの低い場所を探すのが非常に難しい、複雑なパズル状態です。" },
+        cluster: { name: "長距離相互作用", desc: "隣だけでなく、少し離れたスピンとも影響し合います。雲のような、あるいはバイオのような独特な「塊（クラスター）」の模様が形成されます。" }
+    };
+
+    function setMode(mode, btn) {
+        currentMode = mode;
+        document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+        if(btn) btn.classList.add('active');
+        init();
+    }
 
     function init() {
         G = 10;
+        document.getElementById('modeName').innerText = modes[currentMode].name;
+        document.getElementById('descTitle').innerText = modes[currentMode].name;
+        document.getElementById('descText').innerText = modes[currentMode].desc;
+
+        // 相互作用 J の初期化 (1次元環状)
+        J_matrix = new Array(N);
+        for(let i=0; i<N; i++) {
+            if(currentMode === 'ferro') J_matrix[i] = 1.0;
+            else if(currentMode === 'antiferro') J_matrix[i] = -1.0;
+            else if(currentMode === 'glass') J_matrix[i] = Math.random() > 0.5 ? 1.5 : -1.5;
+            else J_matrix[i] = 1.0; // clusterは計算側で調整
+        }
+
+        // スピン初期化
         for(let j=0; j<m; j++){
             q[j] = [];
-            for(let i=0; i<N; i++){
-                q[j][i] = Math.random() > 0.5 ? 1 : -1;
-            }
+            for(let i=0; i<N; i++) q[j][i] = Math.random() > 0.5 ? 1 : -1;
         }
-        statusDisplay.innerText = "Running...";
-        statusDisplay.style.color = "#fbbf24";
+
         if(anneal) clearInterval(anneal);
+        document.getElementById('status').innerText = "RUNNING";
+        document.getElementById('status').style.color = "#fbbf24";
         run();
     }
 
     function run() {
         anneal = setInterval(function(){
-            // モンテカルロ・ステップ
             for(let k=0; k<loop; k++){
                 let y = Math.floor(Math.random()*m);
                 let x = Math.floor(Math.random()*N);
                 
-                // 隣接相互作用エネルギー差
-                let dE = (jij*2*q[y][x]*q[y][(N+x-1)%N] + jij*2*q[y][x]*q[y][(x+1)%N])/m;
+                // 隣接相互作用
+                let left = (N+x-1)%N, right = (x+1)%N;
+                let dE = (J_matrix[left]*2*q[y][x]*q[y][left] + J_matrix[x]*2*q[y][x]*q[y][right])/m;
                 
-                // 量子ゆらぎ項の計算
+                // Clusterモード用：少し遠くとも相互作用させる
+                if(currentMode === 'cluster') {
+                    let far_left = (N+x-2)%N, far_right = (x+2)%N;
+                    dE += (0.5*2*q[y][x]*q[y][far_left] + 0.5*2*q[y][x]*q[y][far_right])/m;
+                }
+
+                // 量子項
                 let kk = G/kT/m;
-                let weight = Math.log(Math.tanh(kk)) / kT;
+                let weight = Math.log(Math.max(0.0001, Math.tanh(kk))) / kT;
                 dE -= q[y][x] * (q[(m+y-1)%m][x] + q[(y+1)%m][x]) * weight;
 
-                // メトロポリス法による判定
                 if(dE < 0 || Math.exp(-dE/kT) > Math.random()){
                     q[y][x] = -q[y][x];
                 }
@@ -168,21 +203,18 @@
                 }
             }
 
-            // アニーリング係数の更新
-            G *= 0.995;
-            gDisplay.innerHTML = G.toFixed(3);
+            G *= 0.994;
+            document.getElementById('GG').innerHTML = G.toFixed(3);
 
             if(G < 0.05){
                 clearInterval(anneal);
-                statusDisplay.innerText = "Finished";
-                statusDisplay.style.color = "#4ade80";
+                document.getElementById('status').innerText = "FINISHED";
+                document.getElementById('status').style.color = "#4ade80";
             }
         }, 30);
     }
 
-    document.getElementById('resetBtn').addEventListener('click', init);
     init();
 </script>
-
 </body>
 </html>
